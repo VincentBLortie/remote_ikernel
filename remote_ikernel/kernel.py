@@ -16,8 +16,10 @@ import re
 import subprocess
 import time
 import uuid
+import platform
 
 import pexpect
+from pexpect.popen_spawn import PopenSpawn
 
 from tornado.log import LogFormatter
 
@@ -33,6 +35,11 @@ _LOG_FMT = ("%(color)s[%(levelname)1.1s %(asctime)s.%(msecs).03d "
             "%(name)s]%(end_color)s %(message)s")
 _LOG_DATEFMT = "%H:%M:%S"
 
+def pexpect_spawn(command, **kwargs):
+    if platform.system() == "Windows":
+        return PopenSpawn(command, **kwargs)
+    else:
+        return pexpect.spawn(command, **kwargs)
 
 def _setup_logging(verbose):
     """
@@ -485,13 +492,13 @@ class RemoteIKernel(object):
         else:
             host = self.host
 
-        pexpect.spawn('{pre} ssh -o StrictHostKeyChecking=no '
+        pexpect_spawn('{pre} ssh -o StrictHostKeyChecking=no '
                       '{host}'.format(pre=pre, host=host).strip(),
                       logfile=self.log).sendline('exit')
 
         # connection info should have the ports being used
         tunnel_command = self.tunnel_cmd.format(**self.connection_info)
-        tunnel = pexpect.spawn(tunnel_command, logfile=self.log)
+        tunnel = pexpect_spawn(tunnel_command, logfile=self.log)
         check_password(tunnel)
 
         self.log.info("Setting up tunnels on ports: {0}.".format(
@@ -570,7 +577,7 @@ class RemoteIKernel(object):
             The connection object. This is also attached to the class.
         """
         if self.connection is None:
-            self.connection = pexpect.spawn(command, timeout=timeout,
+            self.connection = pexpect_spawn(command, timeout=timeout,
                                             logfile=self.log)
         else:
             self.connection.sendline(command)
